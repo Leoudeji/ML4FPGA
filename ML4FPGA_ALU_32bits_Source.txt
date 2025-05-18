@@ -1,0 +1,38 @@
+module alu_32bit(
+    input [31:0] a,         // Operand A
+    input [31:0] b,         // Operand B
+    input [2:0]  opcode,    // Operation Code
+    output [31:0] result,   // Result
+    output          zero     // Zero Flag
+);
+
+    reg [31:0] result_reg;
+    reg        zero_reg;
+
+    wire [31:0] add_result = a + b;
+    wire [31:0] sub_result = a - b;
+    wire [31:0] and_result = a & b;
+    wire [31:0] or_result  = a | b;
+    wire [31:0] xor_result = a ^ b;
+    wire [31:0] sll_result = a << b[4:0];
+    wire [31:0] srl_result = a >> b[4:0];
+
+    always @(a, b, opcode) begin
+        case (opcode)
+            3'b000: result_reg = add_result;
+            3'b001: result_reg = sub_result;
+            3'b010: result_reg = and_result;
+            3'b011: result_reg = or_result;
+            3'b100: result_reg = xor_result;
+            3'b101: result_reg = sll_result;
+            3'b110: result_reg = srl_result;
+            default: result_reg = 32'h0;
+        endcase
+
+        zero_reg = (result_reg == 32'h0);
+    end
+
+    assign result = result_reg;
+    assign zero   = zero_reg;
+
+endmodule

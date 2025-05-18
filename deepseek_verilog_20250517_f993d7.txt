@@ -1,0 +1,36 @@
+module alu (
+    input      [31:0] a,          // Operand A
+    input      [31:0] b,          // Operand B
+    input      [2:0]  op,         // Operation (3-bit opcode)
+    output reg [31:0] result,     // ALU result
+    output           zero        // Zero flag (1 if result == 0)
+);
+
+    // Operation codes
+    localparam OP_ADD  = 3'b000;
+    localparam OP_SUB  = 3'b001;
+    localparam OP_AND  = 3'b010;
+    localparam OP_OR   = 3'b011;
+    localparam OP_XOR  = 3'b100;
+    localparam OP_NOT  = 3'b101;
+    localparam OP_SHL  = 3'b110;  // Shift left logical
+    localparam OP_SHR  = 3'b111;  // Shift right logical
+
+    always @(*) begin
+        case (op)
+            OP_ADD:  result = a + b;
+            OP_SUB:  result = a - b;
+            OP_AND:  result = a & b;
+            OP_OR:   result = a | b;
+            OP_XOR:  result = a ^ b;
+            OP_NOT:  result = ~a;
+            OP_SHL:  result = a << b[4:0];  // Shift by lower 5 bits of b
+            OP_SHR:  result = a >> b[4:0];
+            default: result = 32'h0;
+        endcase
+    end
+
+    // Zero flag
+    assign zero = (result == 32'h0);
+
+endmodule

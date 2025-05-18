@@ -1,0 +1,314 @@
+module alu_32bit_tb;
+    // Parameters
+    parameter CLK_PERIOD = 10; // Clock period in ns
+    
+    // Test bench signals
+    reg         clk;
+    reg         rst_n;
+    reg  [31:0] a;
+    reg  [31:0] b;
+    reg  [3:0]  alu_op;
+    wire [31:0] result;
+    wire        zero_flag;
+    wire        carry_flag;
+    wire        overflow_flag;
+    
+    // Operation codes (same as in ALU module)
+    localparam  ADD  = 4'b0000,  // Addition
+                SUB  = 4'b0001,  // Subtraction
+                AND  = 4'b0010,  // Bitwise AND
+                OR   = 4'b0011,  // Bitwise OR
+                XOR  = 4'b0100,  // Bitwise XOR
+                SLL  = 4'b0101,  // Logical left shift
+                SRL  = 4'b0110,  // Logical right shift
+                SRA  = 4'b0111,  // Arithmetic right shift
+                SLT  = 4'b1000,  // Set less than (signed)
+                SLTU = 4'b1001,  // Set less than (unsigned)
+                MUL  = 4'b1010,  // Multiplication
+                DIV  = 4'b1011;  // Division
+    
+    // Test case counter
+    integer test_case;
+    integer errors;
+    
+    // Instantiate the ALU
+    alu_32bit DUT (
+        .clk(clk),
+        .rst_n(rst_n),
+        .a(a),
+        .b(b),
+        .alu_op(alu_op),
+        .result(result),
+        .zero_flag(zero_flag),
+        .carry_flag(carry_flag),
+        .overflow_flag(overflow_flag)
+    );
+    
+    // Clock generation
+    initial begin
+        clk = 0;
+        forever #(CLK_PERIOD/2) clk = ~clk;
+    end
+    
+    // Test procedure
+    initial begin
+        // Initialize variables
+        rst_n = 0;
+        a = 0;
+        b = 0;
+        alu_op = 0;
+        test_case = 0;
+        errors = 0;
+        
+        // Apply reset
+        #20 rst_n = 1;
+        
+        // Wait for a few clock cycles
+        #30;
+        
+        // Run the test cases
+        run_test_cases();
+        
+        // Report test results
+        if (errors == 0)
+            $display("All tests passed successfully!");
+        else
+            $display("Tests completed with %0d errors.", errors);
+            
+        // End simulation
+        #100 $finish;
+    end
+    
+    // Task to run all test cases
+    task run_test_cases;
+        begin
+            // Addition tests
+            test_addition();
+            
+            // Subtraction tests
+            test_subtraction();
+            
+            // Logical operation tests
+            test_logical_operations();
+            
+            // Shift operation tests
+            test_shift_operations();
+            
+            // Comparison operation tests
+            test_comparison_operations();
+            
+            // Arithmetic operation tests
+            test_arithmetic_operations();
+            
+            // Special case tests
+            test_special_cases();
+        end
+    endtask
+    
+    // Task to check and report test results
+    task check_result;
+        input [31:0] expected_result;
+        input expected_zero;
+        input expected_carry;
+        input expected_overflow;
+        begin
+            // Wait for two clock cycles for results to update
+            @(posedge clk);
+            @(posedge clk);
+            
+            // Check if results match expectations
+            if (result !== expected_result || 
+                zero_flag !== expected_zero || 
+                carry_flag !== expected_carry || 
+                overflow_flag !== expected_overflow) begin
+                
+                $display("Test Case %0d Failed!", test_case);
+                $display("  Operation: %b", alu_op);
+                $display("  A: %h, B: %h", a, b);
+                $display("  Expected Result: %h, Got: %h", expected_result, result);
+                $display("  Expected Zero: %b, Got: %b", expected_zero, zero_flag);
+                $display("  Expected Carry: %b, Got: %b", expected_carry, carry_flag);
+                $display("  Expected Overflow: %b, Got: %b", expected_overflow, overflow_flag);
+                errors = errors + 1;
+            end else begin
+                $display("Test Case %0d Passed!", test_case);
+            end
+            
+            test_case = test_case + 1;
+        end
+    endtask
+    
+    // Task to test addition operations
+    task test_addition;
+        begin
+            // Simple addition
+            a = 32'h0000_000A;  // 10
+            b = 32'h0000_0014;  // 20
+            alu_op = ADD;
+            check_result(32'h0000_001E, 1'b0, 1'b0, 1'b0);  // Result = 30
+            
+            // Addition with carry
+            a = 32'hFFFF_FFFF;
+            b = 32'h0000_0001;
+            alu_op = ADD;
+            check_result(32'h0000_0000, 1'b1, 1'b1, 1'b0);  // Result = 0, Carry = 1
+            
+            // Addition with overflow
+            a = 32'h7FFF_FFFF;  // Max positive int
+            b = 32'h0000_0001;
+            alu_op = ADD;
+            check_result(32'h8000_0000, 1'b0, 1'b0, 1'b1);  // Result = negative, Overflow = 1
+        end
+    endtask
+    
+    // Task to test subtraction operations
+    task test_subtraction;
+        begin
+            // Simple subtraction
+            a = 32'h0000_001E;  // 30
+            b = 32'h0000_000A;  // 10
+            alu_op = SUB;
+            check_result(32'h0000_0014, 1'b0, 1'b0, 1'b0);  // Result = 20
+            
+            // Subtraction resulting in zero
+            a = 32'h0000_000A;
+            b = 32'h0000_000A;
+            alu_op = SUB;
+            check_result(32'h0000_0000, 1'b1, 1'b0, 1'b0);  // Result = 0
+            
+            // Subtraction with borrow/carry
+            a = 32'h0000_0000;
+            b = 32'h0000_0001;
+            alu_op = SUB;
+            check_result(32'hFFFF_FFFF, 1'b0, 1'b1, 1'b0);  // Result = -1
+            
+            // Subtraction with overflow
+            a = 32'h8000_0000;  // Min negative int
+            b = 32'h0000_0001;
+            alu_op = SUB;
+            check_result(32'h7FFF_FFFF, 1'b0, 1'b0, 1'b1);  // Result = max positive, Overflow = 1
+        end
+    endtask
+    
+    // Task to test logical operations
+    task test_logical_operations;
+        begin
+            // AND operation
+            a = 32'hAAAA_AAAA;  // 10101010...
+            b = 32'h5555_5555;  // 01010101...
+            alu_op = AND;
+            check_result(32'h0000_0000, 1'b1, 1'b0, 1'b0);  // Result = 0
+            
+            // OR operation
+            a = 32'hAAAA_AAAA;
+            b = 32'h5555_5555;
+            alu_op = OR;
+            check_result(32'hFFFF_FFFF, 1'b0, 1'b0, 1'b0);  // Result = all 1's
+            
+            // XOR operation
+            a = 32'hFFFF_FFFF;
+            b = 32'hAAAA_AAAA;
+            alu_op = XOR;
+            check_result(32'h5555_5555, 1'b0, 1'b0, 1'b0);  // Result = ~b
+        end
+    endtask
+    
+    // Task to test shift operations
+    task test_shift_operations;
+        begin
+            // Logical left shift
+            a = 32'h0000_00FF;  // 255
+            b = 32'h0000_0004;  // Shift by 4
+            alu_op = SLL;
+            check_result(32'h0000_0FF0, 1'b0, 1'b0, 1'b0);  // Result = 4080
+            
+            // Logical right shift
+            a = 32'h8000_0000;  // MSB = 1
+            b = 32'h0000_0001;  // Shift by 1
+            alu_op = SRL;
+            check_result(32'h4000_0000, 1'b0, 1'b0, 1'b0);  // Result = 0x40000000
+            
+            // Arithmetic right shift
+            a = 32'h8000_0000;  // MSB = 1 (negative)
+            b = 32'h0000_0001;  // Shift by 1
+            alu_op = SRA;
+            check_result(32'hC000_0000, 1'b0, 1'b0, 1'b0);  // Result = 0xC0000000
+        end
+    endtask
+    
+    // Task to test comparison operations
+    task test_comparison_operations;
+        begin
+            // Set less than (signed) - true
+            a = 32'hFFFF_FFFF;  // -1
+            b = 32'h0000_0001;  // 1
+            alu_op = SLT;
+            check_result(32'h0000_0001, 1'b0, 1'b0, 1'b0);  // Result = 1 (true)
+            
+            // Set less than (signed) - false
+            a = 32'h0000_0002;  // 2
+            b = 32'h0000_0001;  // 1
+            alu_op = SLT;
+            check_result(32'h0000_0000, 1'b1, 1'b0, 1'b0);  // Result = 0 (false)
+            
+            // Set less than (unsigned) - true
+            a = 32'h0000_0001;  // 1
+            b = 32'h0000_0002;  // 2
+            alu_op = SLTU;
+            check_result(32'h0000_0001, 1'b0, 1'b0, 1'b0);  // Result = 1 (true)
+            
+            // Set less than (unsigned) - false with negative
+            a = 32'hFFFF_FFFF;  // Max unsigned (would be -1 signed)
+            b = 32'h0000_0001;  // 1
+            alu_op = SLTU;
+            check_result(32'h0000_0000, 1'b1, 1'b0, 1'b0);  // Result = 0 (false)
+        end
+    endtask
+    
+    // Task to test arithmetic operations
+    task test_arithmetic_operations;
+        begin
+            // Multiplication
+            a = 32'h0000_000A;  // 10
+            b = 32'h0000_0014;  // 20
+            alu_op = MUL;
+            check_result(32'h0000_00C8, 1'b0, 1'b0, 1'b0);  // Result = 200
+            
+            // Division
+            a = 32'h0000_00C8;  // 200
+            b = 32'h0000_000A;  // 10
+            alu_op = DIV;
+            check_result(32'h0000_0014, 1'b0, 1'b0, 1'b0);  // Result = 20
+        end
+    endtask
+    
+    // Task to test special cases
+    task test_special_cases;
+        begin
+            // Division by zero
+            a = 32'h0000_00C8;  // 200
+            b = 32'h0000_0000;  // 0
+            alu_op = DIV;
+            check_result(32'hFFFF_FFFF, 1'b0, 1'b0, 1'b0);  // Result = all 1's
+            
+            // Test for zero flag with zero result
+            a = 32'h0000_0000;
+            b = 32'h0000_0000;
+            alu_op = ADD;
+            check_result(32'h0000_0000, 1'b1, 1'b0, 1'b0);  // Result = 0, Zero = 1
+            
+            // Test operation with all bits set
+            a = 32'hFFFF_FFFF;
+            b = 32'hFFFF_FFFF;
+            alu_op = XOR;
+            check_result(32'h0000_0000, 1'b1, 1'b0, 1'b0);  // Result = 0
+        end
+    endtask
+    
+    // Waveform generation (optional - for simulators that support it)
+    initial begin
+        $dumpfile("alu_32bit_tb.vcd");
+        $dumpvars(0, alu_32bit_tb);
+    end
+    
+endmodule

@@ -1,0 +1,42 @@
+module alu_32bit(
+    input [31:0] a,         // Operand A
+    input [31:0] b,         // Operand B
+    input [2:0]  opcode,    // Operation Code
+    output [31:0] result,   // Result
+    output          zero     // Zero Flag
+);
+
+    parameter ADD = 3'b000;  // Addition
+    parameter SUB = 3'b001;  // Subtraction
+    parameter AND = 3'b010;  // Bitwise AND
+    parameter OR  = 3'b011;  // Bitwise OR
+    parameter XOR = 3'b100;  // Bitwise XOR
+    parameter SLL = 3'b101;  // Shift Left Logical
+    parameter SRL = 3'b110;  // Shift Right Logical
+
+    reg [31:0] result_reg;
+    reg        zero_reg;
+
+    always @(a, b, opcode) begin
+        case (opcode)
+            ADD: result_reg = a + b;
+            SUB: result_reg = a - b;
+            AND: result_reg = a & b;
+            OR:  result_reg = a | b;
+            XOR: result_reg = a ^ b;
+            SLL: result_reg = a << b[4:0];
+            SRL: result_reg = a >> b[4:0];
+            default: result_reg = 32'h0;
+        endcase
+
+        if (result_reg == 32'h0) begin
+            zero_reg = 1'b1;
+        end else begin
+            zero_reg = 1'b0;
+        end
+    end
+
+    assign result = result_reg;
+    assign zero   = zero_reg;
+
+endmodule
